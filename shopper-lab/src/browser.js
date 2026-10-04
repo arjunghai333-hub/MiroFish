@@ -83,7 +83,7 @@ async function createShopperPage(browser, { onBlockedCheckout } = {}) {
  * from the current page, each tagged with a small numeric id. The runner
  * sends only these candidates (never raw selectors/URLs) to the model.
  */
-async function extractCandidates(page, { limit = 40 } = {}) {
+async function extractCandidates(page, { limit = 60 } = {}) {
   return page.evaluate((maxCandidates) => {
     function visible(el) {
       const rect = el.getBoundingClientRect();
@@ -96,11 +96,9 @@ async function extractCandidates(page, { limit = 40 } = {}) {
       return (el.innerText || el.textContent || el.value || '')
         .replace(/\s+/g, ' ')
         .trim()
-        .slice(0, 120);
+        .slice(0, 140);
     }
 
-    // Candidate ids must remain stable while the model reasons. Clear any
-    // ids from a previous step, then pin the current visible element itself.
     document.querySelectorAll('[data-mirofish-candidate-id]').forEach((el) => {
       el.removeAttribute('data-mirofish-candidate-id');
     });
@@ -109,35 +107,51 @@ async function extractCandidates(page, { limit = 40 } = {}) {
       document.querySelectorAll('a[href], button, input[type="submit"], [role="button"]')
     );
 
-    const candidates = [];
+    const ranked = [];
     for (const el of nodes) {
-      if (candidates.length >= maxCandidates) break;
       if (!visible(el)) continue;
       const label = textOf(el);
       if (!label) continue;
 
       const href = el.tagName === 'A' ? el.getAttribute('href') : null;
-      let kind = 'button';
-      if (el.tagName === 'A') kind = 'link';
-
-      const haystack = `${label} ${href || ''} ${el.className || ''}`.toLowerCase();
-      const looksLikeAddToCart = /add to cart|add-to-cart|buy now|add to bag/.test(haystack);
+      const kind = el.tagName === 'A' ? 'link' : 'button';
+      const haystack = (label + ' ' + (href || '') + ' ' + (el.className || '')).toLowerCase();
+      const looksLikeAddToCart = /add to cart|add-to-cart|add to bag/.test(haystack);
       const looksLikeProduct = kind === 'link' && href && /\/products\//.test(href);
-      const optionContainer = el.closest('fieldset, variant-selects, variant-radios, [class*="variant" i], [class*="option" i], [data-option]');
+      const optionContainer = el.closest(
+        'fieldset, variant-selects, variant-radios, [class*="variant" i], [class*="option" i], [data-option]'
+      );
       const looksLikeVariant = Boolean(optionContainer) && kind === 'button' && !looksLikeAddToCart;
 
-      const id = candidates.length + 1;
-      el.setAttribute('data-mirofish-candidate-id', String(id));
-      candidates.push({
-        id,
-        kind,
-        label,
-        href: href || null,
-        hint: looksLikeAddToCart ? 'add_to_cart' : looksLikeProduct ? 'product_link' : looksLikeVariant ? 'variant_option' : 'generic',
-      });
+      const hint = looksLikeAddToCart
+        ? 'add_to_cart'
+        : looksLikeVariant
+          ? 'variant_option'
+          : looksLikeProduct
+            ? 'product_link'
+            : 'generic';
+
+      const priority =
+        hint === 'add_to_cart' ? 0 :
+        hint === 'variant_option' ? 1 :
+        hint === 'product_link' ? 2 : 3;
+
+      ranked.push({ el, kind, label, href: href || null, hint, priority });
     }
 
-    return candidates;
+    ranked.sort((a, b) => a.priority - b.priority);
+
+    return ranked.slice(0, maxCandidates).map((item, index) => {
+      const id = index + 1;
+      item.el.setAttribute('data-mirofish-candidate-id', String(id));
+      return {
+        id,
+        kind: item.kind,
+        label: item.label,
+        href: item.href,
+        hint: item.hint,
+      };
+    });
   }, limit);
 }
 

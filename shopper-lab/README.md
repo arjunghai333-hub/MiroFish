@@ -23,7 +23,8 @@ A simulation user-agent marker is added: `MiroFishShopperLab/1.0`.
 
 - Node.js 20+ (Node 22 recommended)
 - Google Chrome or Puppeteer's bundled browser
-- Claude Code CLI installed and already authenticated for LLM runs
+- For Claude mode: Claude Code CLI installed and already authenticated
+- For FreeLLM mode on this Mac: FreeLLMAPI running locally
 - No OpenAI or Anthropic API key is required by this shopper lab
 
 ## Install
@@ -55,9 +56,19 @@ npm run simulate -- --url https://www.indiancricketstore.com --agents 1 --steps 
 
 ## Synthetic shopper run
 
+Claude Code mode:
+
 ```bash
 npm run simulate -- --url https://www.indiancricketstore.com --agents 6 --steps 8
 ```
+
+FreeLLM mode:
+
+```bash
+MIROFISH_FREE_LLM_MODEL='gemma4:31b' npm run simulate -- --url https://www.indiancricketstore.com --agents 12 --steps 5 --free-llm
+```
+
+`--free-llm` uses the local OpenAI-compatible FreeLLMAPI router. On this Mac the runner reads the local FreeLLM unified key at runtime; it does not print or commit the key. On another machine or in cloud, set `MIROFISH_FREE_LLM_API_KEY` and `MIROFISH_FREE_LLM_BASE_URL` explicitly.
 
 Useful options:
 
@@ -68,9 +79,10 @@ Useful options:
 --output PATH    custom output folder
 --headless false show Chrome windows
 --no-llm         deterministic smoke mode
+--free-llm       use local FreeLLMAPI for shopper reasoning
 ```
 
-Start small. Each LLM shopper can make several Claude calls, so a large agent/step count is unnecessary for initial research.
+Start small. Each shopper can make several model calls. FreeLLM mode has failover for transient rate limits, timeouts and malformed outputs. `gemma4:31b` has been the most stable fast primary route on the current Mac setup.
 
 ## Outputs
 
@@ -131,11 +143,13 @@ That prevents the store from scrambling through random discounts and redesigns b
 
 ## Cloud deployment
 
-The current build intentionally uses the locally authenticated Claude Code CLI, so it runs on the authorised Mac without an API key.
+The current build supports both the locally authenticated Claude Code CLI and the local FreeLLMAPI router.
 
-A public/cloud deployment needs a different inference strategy because a Claude Code desktop subscription should not be copied into Cloud Run. The safe cloud options are:
+A public/cloud deployment should not copy Claude desktop subscription credentials into Cloud Run. FreeLLM can be used in cloud only with separately authorised provider credentials; the Mac-local FreeLLM unified key is deliberately not committed to Git.
+
+The safe cloud options are:
 
 - keep the simulation runner on the authorised Mac and publish only reports elsewhere, or
-- use a separately authorised cloud model/provider and accept its usage cost.
+- deploy with separately authorised FreeLLM/provider credentials supplied as cloud secrets.
 
 The shopper lab does not need to be embedded into the public Shopify storefront to test it. Keeping the research runner separate is safer and avoids exposing an internal simulation tool to customers.

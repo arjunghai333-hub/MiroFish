@@ -20,6 +20,7 @@ const {
   performSearch,
 } = require('./browser');
 const { decideAction } = require('./claude');
+const { decideActionFreeLlm } = require('./freellm');
 const { decideActionHeuristic } = require('./heuristic');
 const { isAllowedAction } = require('./safety');
 
@@ -75,7 +76,7 @@ async function safeScreenshot(page, filePath) {
  * @param {(event: object) => void} opts.logEvent
  * @param {object} [opts.claudeOptions]
  */
-async function runAgent({ browser, persona, startUrl, maxSteps, noLlm, heuristic = false, screenshotsDir, logEvent, claudeOptions }) {
+async function runAgent({ browser, persona, startUrl, maxSteps, noLlm, heuristic = false, freeLlm = false, screenshotsDir, logEvent, claudeOptions, freeLlmOptions }) {
   let blockedCheckout = false;
   let blockedCheckoutUrl = null;
 
@@ -164,15 +165,25 @@ async function runAgent({ browser, persona, startUrl, maxSteps, noLlm, heuristic
       ? decideActionNoLlm({ pageState, candidates, stepIndex })
       : heuristic
         ? decideActionHeuristic({ persona, pageState, candidates, stepIndex, maxSteps, history })
-        : await decideAction({
-            persona,
-            pageState,
-            candidates,
-            stepIndex,
-            maxSteps,
-            history,
-            claudeOptions,
-          });
+        : freeLlm
+          ? await decideActionFreeLlm({
+              persona,
+              pageState,
+              candidates,
+              stepIndex,
+              maxSteps,
+              history,
+              freeLlmOptions,
+            })
+          : await decideAction({
+              persona,
+              pageState,
+              candidates,
+              stepIndex,
+              maxSteps,
+              history,
+              claudeOptions,
+            });
 
     let action = isAllowedAction(decision.action) ? decision.action : 'stop';
     if (noLlm && action === 'add_to_cart') {
@@ -241,6 +252,8 @@ async function runAgent({ browser, persona, startUrl, maxSteps, noLlm, heuristic
       reason: executionNote ? `${decision.reason} | ${executionNote}` : decision.reason,
       purchase_intent: decision.purchase_intent,
       friction_tags: decision.friction_tags,
+      decision_model: decision._model || (noLlm ? 'deterministic-smoke' : heuristic ? 'persona-heuristic' : freeLlm ? 'freellm-unknown' : 'claude'),
+      model_usage: decision._usage || null,
     });
 
     history.push({ step: stepIndex, action, candidate: selectedCandidate ? selectedCandidate.label : null, success: actionSuccess, reason: decision.reason });

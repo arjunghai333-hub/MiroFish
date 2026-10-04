@@ -18,6 +18,7 @@ function parseArgs(argv) {
     seed: Date.now(),
     noLlm: false,
     heuristic: false,
+    freeLlm: false,
   };
 
   for (let i = 0; i < argv.length; i++) {
@@ -30,6 +31,7 @@ function parseArgs(argv) {
     else if (arg === '--seed') opts.seed = Number(next());
     else if (arg === '--no-llm') opts.noLlm = true;
     else if (arg === '--heuristic') opts.heuristic = true;
+    else if (arg === '--free-llm') opts.freeLlm = true;
     else if (arg === '--headless') {
       const maybe = argv[i + 1];
       if (maybe && !maybe.startsWith('--')) {
@@ -71,6 +73,7 @@ Options:
   --headed         Show browser windows
   --no-llm         Deterministic safe smoke mode; never adds to cart
   --heuristic      Persona/budget/brand fallback; may add to cart, never checkout
+  --free-llm       Use local FreeLLMAPI router for shopper decisions
 `;
 }
 
@@ -131,6 +134,8 @@ async function main() {
           maxSteps: opts.steps,
           noLlm: opts.noLlm,
           heuristic: opts.heuristic,
+    free_llm: opts.freeLlm,
+          freeLlm: opts.freeLlm,
           screenshotsDir,
           logEvent,
           claudeOptions: {},
