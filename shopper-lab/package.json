@@ -1,0 +1,18 @@
+{
+  "name": "mirofish-ics-shopper-lab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Synthetic mobile shopper research harness for Indian Cricket Store, using MiroFish-style personas and Claude Code.",
+  "type": "commonjs",
+  "scripts": {
+    "simulate": "node src/cli.js",
+    "test": "node --test test/*.test.js",
+    "smoke": "node src/cli.js --url https://www.indiancricketstore.com --agents 1 --steps 2 --no-llm"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "puppeteer": "^24.24.1"
+  }
+}
